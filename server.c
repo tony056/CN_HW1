@@ -19,39 +19,55 @@ int main(int argc, char *argv[]){
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(PORT_NUM);
     serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-
+	
     bind(listenfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
     listen(listenfd, 1);
     
     length = sizeof(clientAddress);
     connectfd = accept(listenfd, (struct sockaddr*)&clientAddress, &length);
     if(connectfd < 0) {
-	printf("accept error\n");
-	return 0;
+		printf("accept error\n");
+		return 0;
     }
+
+	//write a message to let client know the connection is success
     write(connectfd, "Hello Client\n", 13);
-    int read_size = 0;
-    while((read_size = recv(connectfd, buffer, 1024, 0))> 0){
-	if(strcmp("ls", buffer) == 0){
-	    char getString[100] = "we get your ls";
-	    write(connectfd, getString , strlen(getString));
-	}
-	else if(strcmp("cat", buffer) == 0){
-	    char getString[100] = "we get your cat";
-	    write(connectfd, getString, strlen(getString));
-	}
-	else if(strcmp("grep", buffer) == 0){	
-	    char getString[100] = "we get your grep";
-	    write(connectfd, getString, strlen(getString));
-	}else{
-	    write(connectfd, "Not a command", 13);
-	}
 	bzero(&buffer, sizeof(buffer));
+    
+	
+	int read_size = 0;
+	while((read_size = recv(connectfd, buffer, 1024, 0))> 0){
+		if( strcmp(buffer, "loser") == 0 ){
+			write(connectfd, "Not a command", 13);
+		}
+		else{
+			char* token = strtok( buffer, " ,|>" );
+			while( token !=  NULL){
+				write(connectfd, token, strlen(token));
+				token = strtok( NULL, " ,|>");
+			}
+		}
+		
+		/*if(strcmp("ls", buffer) == 0){
+	    	char getString[100] = "we get your ls";
+	    	write(connectfd, getString , strlen(getString));
+		}
+		else if(strcmp("cat", buffer) == 0){
+	    	char getString[100] = "we get your cat";
+	    	write(connectfd, getString, strlen(getString));
+		}
+		else if(strcmp("grep", buffer) == 0){	
+	    	char getString[100] = "we get your grep";
+	    	write(connectfd, getString, strlen(getString));
+		}else{
+	    	write(connectfd, "Not a command", 13);
+		}*/
+		bzero(&buffer, sizeof(buffer));
     }
     
     if(read_size <= 0){
-	printf("disconnected\n");
-	close(connectfd);
+		printf("disconnected\n");
+		close(connectfd);
     }
     return 0;
 }
