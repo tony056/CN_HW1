@@ -2,3 +2,7 @@ bin/*
 *.out
 HW1
 .DS_Store
+clientSample.c
+serverSample.c
+client
+server
