@@ -14,13 +14,15 @@ char* path = "PATH";
 int commandFlag = 0;
 char *reply;
 int i;
-
+int para_num = 0;
+int para_start = -1;
 char save_token[15][100];
+int debugMode = 1;
 
 void judgeToken(char* command);
 void execPrintEnv(char* var);
 void execSetEnv(char* var);
-
+void execThreeOperation(int num);
 
 int main(int argc, char *argv[]){
     char buffer[1024];
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]){
 
 	
     
-    //bzero(&buffer, sizeof(buffer));
+    bzero(&buffer, sizeof(buffer));
 
     int n = 0;
     while(1){
@@ -92,6 +94,8 @@ int main(int argc, char *argv[]){
            }
            //bzero(&buffer, sizeof(buffer));
            send(connectfd, reply, n+1, 0);
+           bzero(&reply, sizeof(reply));
+           bzero(&buffer, sizeof(buffer));
         }
 
         if (n < 0) {
@@ -112,7 +116,11 @@ int main(int argc, char *argv[]){
 void judgeToken(char* command){
     printf("%s,%s\n","judge.....",command );
     printf("commandFlag: %d\n", commandFlag);
-    
+    if(commandFlag == 3){
+        if(strcmp(command, "|") != 0 && strcmp(command, ">") != 0){
+            para_num++; 
+        } 
+    }
         
     if(strcmp(command, "printenv") == 0){
         commandFlag = 1;
@@ -129,14 +137,18 @@ void judgeToken(char* command){
         }
         commandFlag = 0;
     }else if(strcmp(command, "ls") == 0){
-
+        commandFlag = 3;
+        para_start = i;
     }else if(strcmp(command, "cat") == 0){
-
+        commandFlag = 3;
+        para_start = i;
     }else if(strcmp(command, "grep") == 0){
-
-    }else if(strcmp(command, "|") == 0){
-
+        commandFlag = 3;
+        para_start = i;
+    }else if(strcmp(command, "|") == 0 || strcmp(command, ">") == 0){
+        commandFlag = 0;
     }
+    e
 }
 
 void execPrintEnv(char* var){
@@ -152,4 +164,22 @@ void execSetEnv(char* var){
     envPath = getenv(var);
     strcpy(reply, "PATH=");
     strcat(reply, envPath);
+}
+
+void execThreeOperation(int num){
+    char exec_para[10][100];
+    if(para_start != -1){
+        int j;
+        for(j = 0;j < num + 1; j++){
+            strcpy(exec_para[j], save_token[para_start + j]);
+            strcat(reply, exec_para[j]);
+            strcat(reply, "$");
+            printf("para: %s\n", exec_para[j]);
+        }
+        if(debugMode == 0){
+            //execlp(exec_para, (char *)0);
+        }
+        
+    }
+    para_num = 0;
 }

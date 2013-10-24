@@ -6,3 +6,6 @@ clientSample.c
 serverSample.c
 client
 server
+pipeline
+pipeline.c
+*.txt

@@ -75,6 +75,8 @@ int main(int argc, char *argv[] ){
 	 	//printf("%s", "$");
 	  	fputs(reply, stdout);
 	  	printf("\n%% ");
+      bzero(&reply, sizeof(reply));
+      bzero(&command, sizeof(command));
 	}
     
     close(sockfd);
