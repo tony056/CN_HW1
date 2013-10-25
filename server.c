@@ -148,7 +148,7 @@ void judgeToken(char* command){
     }else if(strcmp(command, "|") == 0 || strcmp(command, ">") == 0){
         commandFlag = 0;
     }
-    e
+    
 }
 
 void execPrintEnv(char* var){

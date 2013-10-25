@@ -45,7 +45,7 @@ int main(int argc, char *argv[] ){
   		default: 
    			printf("unknown address type/n"); 
    			break; 
- 	} 
+ 	  } 
     //return 0;
 
     bzero(&serverAddress, sizeof(serverAddress));
@@ -56,28 +56,28 @@ int main(int argc, char *argv[] ){
     printf("coneection\n");
     
     if(connect(sockfd, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0){
-		printf("coneection error\n");
-		return 0;
+  		printf("coneection error\n");
+  		return 0;
     }
 
-	bzero(&reply, sizeof(reply));
-	    
-	printf("%% ");
+  	bzero(&reply, sizeof(reply));
+  	    
+  	printf("%% ");
     while (fgets(command, MAXLINE, stdin) != NULL) {
 
-		send(sockfd, command, strlen(command), 0);
+  		send(sockfd, command, strlen(command), 0);
 
-		if (recv(sockfd, reply, MAXLINE, 0) == 0){
-	   		//error: server terminated premat23urely
-	   		perror("The server terminated prematurely");
-	   		exit(4);
-	 	}
-	 	//printf("%s", "$");
-	  	fputs(reply, stdout);
-	  	printf("\n%% ");
-      bzero(&reply, sizeof(reply));
-      bzero(&command, sizeof(command));
-	}
+  		if (recv(sockfd, reply, MAXLINE, 0) == 0){
+  	   		//error: server terminated premat23urely
+  	   		perror("The server terminated prematurely");
+  	   		exit(4);
+  	 	}
+  	 	//printf("%s", "$");
+  	  	fputs(reply, stdout);
+  	  	printf("\n%% ");
+        bzero(&reply, sizeof(reply));
+        bzero(&command, sizeof(command));
+  	}
     
     close(sockfd);
 
