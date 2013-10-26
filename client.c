@@ -6,18 +6,30 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <netdb.h> 
+#include <pthread.h>
 
 
 #define MAXLINE 1024
 
 
 int PORT_NUM = 5000;
+int sockfd;
+/* thread: read from server */
+void *readFromServer(){
+  char reply[5000];
+  while(1){
+    memset(reply, '\0', 5000);
+    recv(sockfd, reply, sizeof(reply), 0);
+    printf("%s", reply);
+
+  }
+}
 
 int main(int argc, char *argv[] ){
     char buffer[50];
-    int sockfd;
+    pthread_t thread;
     struct sockaddr_in serverAddress;
-    char command[1024], reply[1024];
+    char command[1024];
     if(argc < 3 ){
 		printf("insert error\n");
 		return 0;
@@ -60,23 +72,15 @@ int main(int argc, char *argv[] ){
   		return 0;
     }
 
-  	bzero(&reply, sizeof(reply));
-  	    
+  	//bzero(&reply, sizeof(reply));
+  	pthread_create(&thread, NULL, readFromServer, NULL);    
   	printf("%% ");
     while (fgets(command, MAXLINE, stdin) != NULL) {
-
+      printf("%% ");
   		send(sockfd, command, strlen(command), 0);
 
-  		if (recv(sockfd, reply, MAXLINE, 0) == 0){
-  	   		//error: server terminated premat23urely
-  	   		perror("The server terminated prematurely");
-  	   		exit(4);
-  	 	}
-  	 	//printf("%s", "$");
-  	  	fputs(reply, stdout);
-  	  	printf("\n%% ");
-        bzero(&reply, sizeof(reply));
-        bzero(&command, sizeof(command));
+      bzero(&command, sizeof(command));
+      
   	}
     
     close(sockfd);

@@ -32,6 +32,8 @@ void setEnv();
 void exec_shell();
 void exec_cmd();
 void parse_cmd(char *str);
+int check_setEnv(char* cmd);
+int check_printEnv(char* cmd);
 
 int main(int argc, char *argv[]){
 
@@ -90,6 +92,7 @@ void buildSocketConnect(){
 
 void setEnv(char *init){
 	char* path = "PATH";
+
 	if(setenv(path, init, 1) != 0){
         printf("set PATH error\n");
         exit(EXIT_FAILURE);
@@ -99,7 +102,7 @@ void setEnv(char *init){
 void exec_shell(){
 	
 	buffer = (char *)malloc(sizeof(char)*MAX_LENGTH);
-	int n = 0, cmd_pid;
+	int n = 0, cmd_pid, child = 0;
 	while((n = recv(connectfd, buffer, MAX_LENGTH, 0)) > 0){
 		printf("%s\n", buffer);
 		cmd_pid = fork();
@@ -108,8 +111,11 @@ void exec_shell(){
         	exit(EXIT_FAILURE);
 		}else if(cmd_pid == 0){
 			parse_cmd(buffer);	
+		}else{
+			printf("child: %d\n", ++child);
 		}
-		bzero(&buffer, sizeof(buffer));
+		memset(buffer, '\0', sizeof(char*)*MAX_LENGTH);
+		//bzero(&buffer, sizeof(buffer));
 	}
 			//-> execute(parse(cmd))
 				// -> fork, pipe 
@@ -120,6 +126,7 @@ void exec_cmd(char** arg){
 
 	
 	if(arg == NULL){
+		printf("%s\n", "arg is NULL");
 		return;
 	}
 	if(pipe(pipes_fd) == -1){
@@ -137,10 +144,11 @@ void exec_cmd(char** arg){
 	
 	}else if(pid == 0){
 		
-		
+		//printf("%d %s\n", pid, buffer);
 		dup2(pipes_fd[0], STDIN_FILENO);
 		dup2(pipes_fd[1], STDOUT_FILENO);
 		close(pipes_fd[1]);
+		close(pipes_fd[0]);
 		//child
 		parse_cmd(buffer);
 
@@ -149,17 +157,17 @@ void exec_cmd(char** arg){
 
 		close(pipes_fd[0]);
 		dup2(pipes_fd[1], STDOUT_FILENO);
-
+		//printf("arg[1]:%s\n", arg[1]);
 		if(execvp(arg[0], arg) == -1){
 			
-			fprintf(stderr, "Error: Unable to load the executable \n");
+			fprintf(stderr, "parent: Error: Unable to load the executable \n");
             exit(EXIT_FAILURE);
 		}
 		//wait(pid, NULL, 0);
 	}
 }
 void parse_cmd(char* cmd){
-	
+	//printf("---parse_index: %d\n", parse_index);
 	char** arg = (char **)malloc(sizeof(char **) * MAX_CMD_COUNT);
 	int i = 0, q_flag = 0, j = 0;
 	
@@ -185,7 +193,7 @@ void parse_cmd(char* cmd){
 
 				}
 				target_file[s] = '\0';
-				printf("target: %s, %d\n", target_file, cmd_index);
+				//printf("target: %s, %d\n", target_file, cmd_index);
 				int fd = open(target_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 				dup2(fd, STDOUT_FILENO);
 
@@ -194,27 +202,45 @@ void parse_cmd(char* cmd){
 				for(h = cmd_index + 1; h < MAX_CMD_COUNT; h++){
 					arg[h] = NULL;
 				}
-				send(connectfd, "\n", 1, 0);
-				if(execvp(arg[0], arg) == -1){
+				//send(connectfd, "ok", 2, 0);
+				if(check_printEnv(arg[0]) > 0 && strcmp(arg[1], "PATH") == 0){
+								//printf("arg[1] = %s",arg[1]);
+								//printf("------\n");
+								
+					printf("PATH=%s\n", getenv(arg[1]));
+								//send(connectfd, path, strlen(path), 0);
+				}else{
+					if(execvp(arg[0], arg) == -1){
 
-					fprintf(stderr, "Error: Unable to load the executable \n");
-            		exit(EXIT_FAILURE);
-				
+						fprintf(stderr, "Error: Unable to load the executable \n");
+	            		exit(EXIT_FAILURE);
+					
+					}
 				}		
-				break;		
+				break;
+
 			}
 			
 			
 		}
 		
 		if(cmd[i] == '|'){
-			printf("||||\n");
+			//printf("||||\n");
 			if( (q_flag % 2) == 0){
+				//printf("||||\n");
 				int h = 0;
 				for(h = cmd_index + 1; h < MAX_CMD_COUNT; h++){
 					arg[h] = NULL;
 				}
-				parse_index = i + 1;
+				int a = 0;
+				for (a = i + 1; a < strlen(cmd); a++)
+				{
+					if(cmd[a] != ' '){
+						break;
+					}
+				}
+				parse_index = a;
+				//printf("parse_index:%d\n", parse_index);
 				exec_cmd(arg);
 				continue;
 			}
@@ -222,17 +248,53 @@ void parse_cmd(char* cmd){
 
 		if(cmd[i]!= ' '){
 			//printf("not a space: %c\n", cmd[i]);
+			if(cmd[i] == '\''){
+				//printf("%d\n", q_flag);
+				q_flag++;
+				continue;
+			}
 			if(cmd[i] == '\n' || cmd[i] == '\0' || i == strlen(cmd) - 1){
-				//printf("arg: %s\n", arg[0]);
-				int h = 0;
-				for(h = cmd_index + 1; h < MAX_CMD_COUNT; h++){
-					arg[h] = NULL;
-				}
-				dup2(connectfd, STDOUT_FILENO);
-				if(execvp(arg[0], arg) == -1){
-			
-					fprintf(stderr, "Error : Unable to load the executable \n");
-            		exit(EXIT_FAILURE);
+				//printf("arg: %s\n", arg[1]);
+				if(q_flag % 2 == 0){
+					
+					int h = 0;
+					for(h = cmd_index + 1; h < MAX_CMD_COUNT; h++){
+						arg[h] = NULL;
+					}
+					if(i!= 0){
+						if(check_setEnv(arg[0]) > 0){
+							if(strcmp(arg[1], "PATH") == 0 && arg[2] != NULL){
+								printf("%s\n","setenv~~" );
+								setenv("PATH", arg[2], 1);
+								//send(connectfd, "ok", 2, 0);
+								//break; 
+							}else{
+								printf("%s\n", "Error : can not set this environment variable");
+							}
+						}else{
+							
+							dup2(connectfd, STDOUT_FILENO);
+							close(connectfd);
+							if(check_printEnv(arg[0]) > 0 && strcmp(arg[1], "PATH") == 0){
+								//printf("arg[1] = %s",arg[1]);
+								//printf("------\n");
+								
+								printf("PATH=%s\n", getenv(arg[1]));
+								//send(connectfd, path, strlen(path), 0);
+
+							}else{
+								
+								if(execvp(arg[0], arg) == -1){
+							
+									fprintf(stderr, "Error : Unable to load the executable \n");
+				            		exit(EXIT_FAILURE);
+								}
+
+							}
+						}
+					}else{
+						send(connectfd, "ok", 2, 0);
+					}
 				}
 			}else{
 				//printf("%s\n", "set arg" );
@@ -252,9 +314,19 @@ void parse_cmd(char* cmd){
 		
 		}
 
-		if(cmd[i] == '\''){
-			q_flag++;
-		}
+		
 		
 	}
+}
+int check_setEnv(char* cmd){
+	if(strcmp(cmd, "setenv") != 0){
+		return -1;
+	}
+	return 1;
+}
+int check_printEnv(char* cmd){
+	if(strcmp(cmd, "printenv") == 0){
+		return 1;
+	}
+	return -1;	
 }
