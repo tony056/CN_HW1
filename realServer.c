@@ -24,6 +24,7 @@ int advance = 0;
 int parse_index = 0;
 int parse = 0;
 char* buffer;
+node* first = NULL;
 
 /* function */
 void setServer();
@@ -34,6 +35,22 @@ void exec_cmd();
 void parse_cmd(char *str);
 int check_setEnv(char* cmd);
 int check_printEnv(char* cmd);
+int reverse_check(char* buffer);
+
+/* structure of advanced pipe */
+typedef struct ns
+{
+	int waiting_num;
+	char command[MAX_LENGTH];
+	struct ns* next;
+} node;
+
+/* function for linked list */
+node* create_node(int num, char* arg);
+void insert_node(node* next);
+void remove_node(node* removePrev);
+void free_lists(node* start);
+
 
 int main(int argc, char *argv[]){
 
@@ -102,17 +119,46 @@ void setEnv(char *init){
 void exec_shell(){
 	
 	buffer = (char *)malloc(sizeof(char)*MAX_LENGTH);
-	int n = 0, cmd_pid, child = 0;
+	int n = 0, cmd_pid, child = 0, b = 0, c = 0;
+	char* set_path;
+	set_path = (char *)malloc(sizeof(char) * MAX_CMD_LENGTH);
 	while((n = recv(connectfd, buffer, MAX_LENGTH, 0)) > 0){
 		printf("%s\n", buffer);
-		cmd_pid = fork();
-		if(cmd_pid < 0){
-			printf("server fork error\n");
-        	exit(EXIT_FAILURE);
-		}else if(cmd_pid == 0){
-			parse_cmd(buffer);	
+		if(strncmp(buffer, "setenv PATH", 11) == 0){
+			//setenv
+			for(b = 11; b < strlen(buffer); b++){
+				if(buffer[b]!= ' ' && buffer[b]!= '\n'){
+					set_path[c++] = buffer[b];
+				}
+			}
+			set_path[c] = '\0';
+			setenv("PATH", set_path, 1);
 		}else{
-			printf("child: %d\n", ++child);
+			int waitNum= reverse_check(buffer);//+'\0' & delete n
+			if(waitNum > 0){
+				
+				if(first != NULL){
+					insert_node(create_node(waitNum, buffer));
+				}else{
+
+					first = (node*)malloc(sizeof(node));
+					first->waiting_num = waitNum;
+					strcpy(first->command, buffer);
+					first->next = NULL;
+				}
+
+
+			}else{
+				cmd_pid = fork();
+				if(cmd_pid < 0){
+					printf("server fork error\n");
+		        	exit(EXIT_FAILURE);
+				}else if(cmd_pid == 0){
+					parse_cmd(buffer);	
+				}else{
+					printf("child: %d\n", ++child);
+				}
+			}
 		}
 		memset(buffer, '\0', sizeof(char*)*MAX_LENGTH);
 		//bzero(&buffer, sizeof(buffer));
@@ -262,36 +308,26 @@ void parse_cmd(char* cmd){
 						arg[h] = NULL;
 					}
 					if(i!= 0){
-						if(check_setEnv(arg[0]) > 0){
-							if(strcmp(arg[1], "PATH") == 0 && arg[2] != NULL){
-								printf("%s\n","setenv~~" );
-								setenv("PATH", arg[2], 1);
-								//send(connectfd, "ok", 2, 0);
-								//break; 
-							}else{
-								printf("%s\n", "Error : can not set this environment variable");
-							}
+							
+						dup2(connectfd, STDOUT_FILENO);
+						close(connectfd);
+						if(check_printEnv(arg[0]) > 0 && strcmp(arg[1], "PATH") == 0){
+							//printf("arg[1] = %s",arg[1]);
+							//printf("------\n");
+							
+							printf("PATH=%s\n", getenv(arg[1]));
+							//send(connectfd, path, strlen(path), 0);
+
 						}else{
 							
-							dup2(connectfd, STDOUT_FILENO);
-							close(connectfd);
-							if(check_printEnv(arg[0]) > 0 && strcmp(arg[1], "PATH") == 0){
-								//printf("arg[1] = %s",arg[1]);
-								//printf("------\n");
-								
-								printf("PATH=%s\n", getenv(arg[1]));
-								//send(connectfd, path, strlen(path), 0);
-
-							}else{
-								
-								if(execvp(arg[0], arg) == -1){
-							
-									fprintf(stderr, "Error : Unable to load the executable \n");
-				            		exit(EXIT_FAILURE);
-								}
-
+							if(execvp(arg[0], arg) == -1){
+						
+								fprintf(stderr, "Error : Unable to load the executable \n");
+			            		exit(EXIT_FAILURE);
 							}
+
 						}
+						
 					}else{
 						send(connectfd, "ok", 2, 0);
 					}
@@ -329,4 +365,31 @@ int check_printEnv(char* cmd){
 		return 1;
 	}
 	return -1;	
+}
+
+node* create_node(int num, char* arg){
+	
+	node* adpipe = (node*)malloc(sizeof(node));
+
+	adpipe->waiting_num = num;
+	strncpy(adpipe->command, arg, strlen(arg));
+	adpipe->command[strlen(arg)] = '\0';
+
+	return adpipe;
+
+}
+
+void insert_node(node* next){
+	node* ptr = first;
+	while(ptr->next != NULL){
+		ptr = ptr->next;
+	}
+
+	ptr->next = next;
+	
+}
+
+void remove_node(node* removePrev){
+
+	removePrev->next = removePrev->next->next;
 }
