@@ -76,7 +76,7 @@ int main(int argc, char *argv[] ){
   	pthread_create(&thread, NULL, readFromServer, NULL);    
   	printf("%% ");
     while (fgets(command, MAXLINE, stdin) != NULL) {
-      printf("%% ");
+      //printf("%% ");
   		send(sockfd, command, strlen(command), 0);
 
       bzero(&command, sizeof(command));
