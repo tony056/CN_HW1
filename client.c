@@ -50,7 +50,6 @@ int main(int argc, char *argv[] ){
   		case AF_INET: 
   		case AF_INET6: 
    			pptr=hostptr->h_addr_list; 
-   			/*將剛才得到的所有地址都打出來。其中調用了inet_ntop()函數*/ 
    			for(;*pptr!=NULL;pptr++) 
     			printf(" address:%s\n", inet_ntop(hostptr->h_addrtype, *pptr, ipaddr, sizeof(ipaddr))); 
    			break; 
@@ -74,7 +73,7 @@ int main(int argc, char *argv[] ){
 
   	//bzero(&reply, sizeof(reply));
   	pthread_create(&thread, NULL, readFromServer, NULL);    
-  	printf("%% ");
+  	//printf("%% ");
     while (fgets(command, MAXLINE, stdin) != NULL) {
       //printf("%% ");
   		send(sockfd, command, strlen(command), 0);

@@ -12,19 +12,21 @@
 #define PORT_NUM (5000)
 #define MAX_CMD_COUNT (15)
 #define MAX_CMD_LENGTH (100)
-#define MAX_LENGTH (1024)
+#define MAX_LENGTH (9999)
 
 /* global variable */
 int listenfd, connectfd;
 socklen_t length;
 struct sockaddr_in serverAddress, clientAddress;
-char* buffer;
 int pipe_length = 0;
 int arg_range = 0;
 int advance = 0;
 int parse_index = 0;
 int parse = 0;
 char* buffer;
+int wpipe_fd[2];
+int rpipe_fd[2];
+int write_flag = 0;
 
 char* waiting_cmd;
 
@@ -37,7 +39,6 @@ void exec_cmd();
 void parse_cmd(char *str);
 int check_setEnv(char* cmd);
 int check_printEnv(char* cmd);
-int reverse_check(char* buffer);
 int check_wait_num();
 
 /* structure of advanced pipe */
@@ -51,9 +52,9 @@ typedef struct ns
 /* function for linked list */
 void create_node(int num, char* arg);
 void insert_node(node* next);
-void remove_node(node* removePrev);
+char* remove_node();
 node* first = NULL;
-//void free_lists(node* start);
+
 
 
 int main(int argc, char *argv[]){
@@ -75,13 +76,19 @@ int main(int argc, char *argv[]){
 
 		connectfd = accept (listenfd, (struct sockaddr *) &clientAddress, &length);
         printf("%s\n","Received request...");
- 		
+ 		write(connectfd, "#########################\n", 26);
+ 		write(connectfd, "##     Welcome         ##\n", 26);
+ 		write(connectfd, "##     b00902056's     ##\n", 26);
+ 		write(connectfd, "##     shell           ##\n", 26);
+ 		write(connectfd, "#########################\n", 26);
+
         if((pid = fork()) < 0 ){
         	printf("server fork error\n");
         	return 0;
         	//error
         }else if(pid == 0){
         	//child
+        	dup2(connectfd, STDERR_FILENO);
         	printf("child\n");
         	exec_shell();
         }
@@ -129,10 +136,9 @@ void exec_shell(){
 	char* set_path;
 	set_path = (char *)malloc(sizeof(char) * MAX_CMD_LENGTH);
 	while((n = recv(connectfd, buffer, MAX_LENGTH, 0)) > 0){
-		printf("%s\n", buffer);
-		int write_flag = check_wait_num();
-		fprintf(stderr, "write_flag: %d\n", write_flag);
-		int wpipe_fd[2];// move it to global
+		//fprintf(stderr, "%s\n", buffer);
+		write_flag = check_wait_num();
+		//fprintf(stderr, "write_flag: %d\n", write_flag);
 		if(strncmp(buffer, "setenv PATH", 11) == 0){
 			//setenv
 			for(b = 11; b < strlen(buffer); b++){
@@ -143,54 +149,63 @@ void exec_shell(){
 			set_path[c] = '\0';
 			setenv("PATH", set_path, 1);
 		}else{
-			//while loop to receive adpipe output from child 
-			//create a node here
-			//wpipe_fd should fork for every child
-			if(write_flag != 0){
-
-				
 
 				if(pipe(wpipe_fd) == -1){
 		
-					fprintf(stderr, "Error: Unable to create pipe. \n");
+					//fprintf(stderr, "Error: Unable to create pipe. \n");
 			        exit(EXIT_FAILURE);
+				}
+				if(pipe(rpipe_fd) == -1){
+
+					//fprintf(stderr, "Error: Unable to create pipe. \n");
+			        exit(EXIT_FAILURE);	
 				}
 				cmd_pid = fork();
 				if(cmd_pid < 0){
-					printf("server fork error\n");
+					//printf("server fork error\n");
 		        	exit(EXIT_FAILURE);
 				}else if(cmd_pid == 0){
 					dup2(wpipe_fd[0], STDIN_FILENO);
 					close(wpipe_fd[0]);
 					close(wpipe_fd[1]);
+					close(rpipe_fd[0]);
 					//dup2(wpipes_fd[])
 					parse_cmd(buffer);	
 				}else{
-					dup2(wpipe_fd[1], STDOUT_FILENO);
-					close(wpipe_fd[1]);
+				
+					//dup2(wpipe_fd[1], STDOUT_FILENO);
+					//close(wpipe_fd[1]);
 					close(wpipe_fd[0]);
-					//printf("child: %d\n", ++child);
+					close(rpipe_fd[1]);
+					//close(wpipe_fd[0]);
+					if(write_flag != 0){
+						char* output = remove_node();
+						
+						write(wpipe_fd[1], output, sizeof(char) * strlen(output));
+						//fprintf(stderr, "fuck you ass hole: %zd\n", );
+						close(wpipe_fd[1]);
+					}
+					int num = -1;
+					char *wait_outcome = (char*)malloc(sizeof(char) * MAX_LENGTH);
+					read(rpipe_fd[0], &num, sizeof(int));
+					//fprintf(stderr, "wpipe_fd[0]: %d\n", num);
+					read(rpipe_fd[0], wait_outcome, sizeof(char) * MAX_LENGTH);
+					//fprintf(stderr, "wait_outcome: %s\n", wait_outcome);
+					if(num > 0){
+						create_node(num, wait_outcome);
+					}
+
+					//printf("child: %dup2\n", ++child);
 				}
 
-			}else{
-				cmd_pid = fork();
-				if(cmd_pid < 0){
-					printf("server fork error\n");
-		        	exit(EXIT_FAILURE);
-				}else if(cmd_pid == 0){
-
-					parse_cmd(buffer);	
-				}else{
-					printf("child: %d\n", ++child);
-				}
-			}
-		}
+		}                    
+		memset(buffer, '\0', sizeof(char) * n);
 		//check wait num function: for loop to --
-		memset(buffer, '\0', sizeof(char*)*MAX_LENGTH);
-
+		
+		
+		
 	}
-			//-> execute(parse(cmd))
-				// -> fork, pipe 
+			 
 }
 void exec_cmd(char** arg){
 	parse++;
@@ -223,7 +238,7 @@ void exec_cmd(char** arg){
 		close(pipes_fd[0]);
 		//child
 		parse_cmd(buffer);
-
+		exit(0);
 		
 	}else{
 
@@ -342,20 +357,27 @@ void parse_cmd(char* cmd){
 							//fprintf(stderr, "isdigit\n");
 							int a = 0;
 							char chnum[4];
-							for(a = 0;a < 3;a++){
+							for(a = 0; a < strlen(arg[cmd_index]); a++){
 								chnum[a] = arg[cmd_index][a];
 							}
-							chnum[3] = '\0';
+							chnum[strlen(arg[cmd_index])] = '\0';
 							int num = atoi(chnum);
-							//fprintf(stderr, "num: %d\n", num);
 							//read from stdin
+							//fprintf(stderr, "nummmmm: %d\n", num);
 							read(STDIN_FILENO, waiting_cmd, MAX_LENGTH);
+							//fprintf(stderr, "waiting_cmd: %s\n", waiting_cmd);
 							//create_node(num, waiting_cmd);
-							write();//write to another pipe.
+							write(rpipe_fd[1], &num, sizeof(int));//write to another pipe.
+							write(rpipe_fd[1], waiting_cmd, MAX_LENGTH);
+							break;
 						}else{	
 							
 							dup2(connectfd, STDOUT_FILENO);
 							close(connectfd);
+							// int nosend = -1;
+							// char* nomessage = "fuck";
+							// write(wpipe_fd[1], &nosend, sizeof(int));//write to another pipe.
+							// write(wpipe_fd[1], nomessage, sizeof(char) * strlen(nomessage));
 							if(check_printEnv(arg[0]) > 0 && strcmp(arg[1], "PATH") == 0){
 								//printf("arg[1] = %s",arg[1]);
 								//printf("------\n");
@@ -374,8 +396,6 @@ void parse_cmd(char* cmd){
 							}
 						}
 						
-					}else{
-						send(connectfd, "ok", 2, 0);
 					}
 				}
 			}else{
@@ -421,6 +441,7 @@ void create_node(int num, char* arg){
 
 		adpipe->waiting_num = num;
 		strncpy(adpipe->command, arg, strlen(arg));
+		adpipe->next = NULL;
 		//adpipe->command[strlen(arg)] = '\0';
 		insert_node(adpipe);
 	}else{
@@ -430,7 +451,8 @@ void create_node(int num, char* arg){
 		first->waiting_num = num;
 		strncpy(first->command, arg, strlen(arg));
 		first->next = NULL;
-		//fprintf(stderr, "command : %s\n",first->command );
+		//fprintf(stderr, "command : %s\n",first->command);
+
 	}
 
 }
@@ -445,17 +467,30 @@ void insert_node(node* next){
 	
 }
 
-void remove_node(){
-
+char* remove_node(){
+	char* out = (char* )malloc(sizeof(char) * MAX_LENGTH);
+	memset(out, '\0', sizeof(char) * MAX_LENGTH);
 	node* ptr = first;
 	node* prev = first;
 	while(ptr != NULL){
 		if(ptr->waiting_num == 0){
+			if(strlen(out) == 0){
+				strcpy(out, ptr->command);
+			}else{
+				strcat(out, ptr->command);
+			}
 		}
 		prev = ptr;
+		
+		if(ptr == first){
+			first = NULL;
+			//fprintf(stderr, "%s\n", "first node is null");
+		}
 		ptr = ptr->next;
-
+		free(prev);
 	}
+	//fprintf(stderr, "remove: %s\n", out);
+	return out;
 }
 
 int check_wait_num(){
@@ -464,18 +499,15 @@ int check_wait_num(){
 	node* tmp = NULL;
 	int wait_node = 0;
 	while(ptr != NULL){
-		//fprintf(stderr, "%s\n", "haha");
+		// fprintf(stderr, "%s\n", "check check");
+		// fprintf(stderr, "ptr->waiting_num: %d\n", ptr->waiting_num);
+		// fprintf(stderr, "ptr->command: %s\n", ptr->command);
 		if(ptr->waiting_num > 0)
 			ptr->waiting_num--;
 		if(ptr->waiting_num == 0){
-
 			wait_node++;
-			write(STDOUT_FILENO, ptr->command, strlen(ptr->command));
-			tmp = ptr->next;
-			free(ptr);
-			ptr = tmp;
-
 		}
+		ptr = ptr->next;
 
 	}
 	
