@@ -1,9 +1,7 @@
-all: server client realServer
-server: server.c
-	gcc -Wall -o server server.c
+all: client realServer
 client: client.c
-	gcc -Wall -o client client.c
+	gcc -Wall -o rsh-client client.c -pthread
 realServer: realServer.c
-	gcc -Wall -o realServer realServer.c
+	gcc -Wall -o rsh-server realServer.c
 clean:
-	rm -rf server client realServer
+	rm -rf rsh-client rsh-server

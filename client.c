@@ -9,7 +9,7 @@
 #include <pthread.h>
 
 
-#define MAXLINE 1024
+#define MAXLINE 1025
 
 
 int PORT_NUM = 5000;
@@ -26,7 +26,7 @@ void *readFromServer(){
 }
 
 int main(int argc, char *argv[] ){
-    char buffer[50];
+    //char buffer[50];
     pthread_t thread;
     struct sockaddr_in serverAddress;
     char command[1024];

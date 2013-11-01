@@ -9,7 +9,7 @@
 #include <ctype.h>
 
 /* define area */ 
-#define PORT_NUM (5000)
+#define PORT_NUM (8001)
 #define MAX_CMD_COUNT (15)
 #define MAX_CMD_LENGTH (100)
 #define MAX_LENGTH (9999)
@@ -132,7 +132,7 @@ void setEnv(char *init){
 void exec_shell(){
 	
 	buffer = (char *)malloc(sizeof(char)*MAX_LENGTH);
-	int n = 0, cmd_pid, child = 0, b = 0, c = 0;
+	int n = 0, cmd_pid, b = 0, c = 0;
 	char* set_path;
 	set_path = (char *)malloc(sizeof(char) * MAX_CMD_LENGTH);
 	while((n = recv(connectfd, buffer, MAX_LENGTH, 0)) > 0){
@@ -496,7 +496,6 @@ char* remove_node(){
 int check_wait_num(){
 	
 	node* ptr = first;
-	node* tmp = NULL;
 	int wait_node = 0;
 	while(ptr != NULL){
 		// fprintf(stderr, "%s\n", "check check");

@@ -10,3 +10,5 @@ pipeline
 pipeline.c
 *.txt
 realServer
+report*
+rsh-*
